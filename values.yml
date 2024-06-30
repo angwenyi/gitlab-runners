@@ -1,0 +1,116 @@
+## GitLab Runner Image Configuration
+image:
+  registry: registry.gitlab.com
+  image: gitlab-org/gitlab-runner
+  tag: "alpine-v15.0.0"  # Specify the correct tag if needed
+
+## Use Tini instead of Dumb-init (Optional)
+useTini: false
+
+## Image Pull Policy
+imagePullPolicy: IfNotPresent
+
+## Number of Concurrent Runners
+concurrent: 10
+
+## Enable RBAC
+rbac:
+  create: true
+
+## Namespace for GitLab Runner
+namespace: gitlab-runner
+
+## GitLab URL and Runner Registration Token
+gitlabUrl: https://gitlab.com/
+runnerRegistrationToken: "glrt-XXXX"  # Replace with your actual registration token
+
+## GitLab Runner Configuration
+runners:
+  config: |
+    [[runners]]
+      name = "qwikpace-runner"
+      url = "https://gitlab.com/"
+      token = "glrt-XXXXX"  # Replace with your actual registration token
+      executor = "kubernetes"
+      run-untagged = true
+      [runners.kubernetes]
+        namespace = "gitlab-runner"
+        namespace_overwrite_allowed = "ci-.*"
+        bearer_token_overwrite_allowed = true
+        privileged = true
+        cpu_limit = "1"
+        memory_limit = "1Gi"
+        service_cpu_limit = "1"
+        service_memory_limit = "1Gi"
+        helper_cpu_limit = "500m"
+        helper_memory_limit = "100Mi"
+        poll_interval = 5
+        poll_timeout = 3600
+        dns_policy = "cluster-first"
+        [runners.kubernetes.node_selector]
+          gitlab = "true"
+        [runners.kubernetes.volumes.docker-socket]
+          name = "docker-socket"
+          [runners.kubernetes.volumes.docker-socket.hostPath]
+            path = "/var/run/docker.sock"
+        [runners.kubernetes.volume_mounts.docker-socket]
+          name = "docker-socket"
+          mount_path = "/var/run/docker.sock"
+    tags = "k8s, docker"
+    image = "docker:19.03.12"  # Use Docker image
+    [[runners.kubernetes.services]]
+      name = "docker:19.03.12-dind"
+      alias = "docker"
+    privileged = true
+    cpu_request = "100m"
+    memory_request = "128Mi"
+    cpu_limit = "500m"
+    memory_limit = "1Gi"
+    [runners.cache]
+      [runners.cache.s3]
+      [runners.cache.gcs]
+
+
+
+
+## Node Affinity and Tolerations
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: gitlab
+              operator: In
+              values:
+                - "true"
+
+tolerations:
+  - key: "node-role.kubernetes.io/master"
+    operator: "Exists"
+    effect: "NoSchedule"
+
+## Node Selector
+nodeSelector:
+  gitlab: "true"
+
+## Environment Variables for the Runner
+envVars:
+  - name: "CI_SERVER_URL"
+    value: "https://gitlab.com/"  # Ensure this URL is correct
+
+## Additional Volumes and Mounts 
+volumeMounts: []
+
+## Security Context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  privileged: false
+  capabilities:
+    drop: ["ALL"]
+
+## Pod Security Context
+podSecurityContext:
+  runAsUser: 100
+  fsGroup: 65533
